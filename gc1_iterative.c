@@ -5,8 +5,9 @@
  * overflows for large graphs. This stage replaces recursion with an
  * explicit, dynamically-grown worklist (a "gray stack" in GC terms).
  *
- * Behavior is identical to gc0 — same tests, same output. The only
- * diff-worthy change is mark()/markAll() plus the new test5.
+ * Behavior is identical to gc0 for the same programs — tests 1-4
+ * pass exactly as before. The only diff-worthy change is
+ * mark()/markAll(); test5 is new and pins the deep chain.
  *
  * Modern relevance: every production collector marks iteratively;
  * recursion is a non-starter once the heap is a graph you don't control.

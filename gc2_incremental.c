@@ -416,10 +416,12 @@ void test7() {
   printf("Test 7: The barrier saves an object deleted then re-added.\n");
   VM* vm = newVM();
 
-  /* victim is reachable ONLY through q->tail — not via a root. */
-  pushInt(vm, 42);              /* victim */
+  /* The victim is reachable ONLY through q->tail — not via a root.
+     pushPair pops the top of the stack into tail, so push the victim
+     LAST: q = (2, victim). */
   pushInt(vm, 2);
-  Object* q = pushPair(vm);     /* q = (2, victim) */
+  pushInt(vm, 42);
+  Object* q = pushPair(vm);
   Object* victim = q->tail;
 
   gcStart(vm);                  /* snapshot taken: victim is live */

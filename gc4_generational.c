@@ -199,6 +199,8 @@ void promoteAll(VM* vm) {
     Object* copy = malloc(sizeof(Object));
     *copy = *object;
     copy->remembered = 0;
+    copy->marked = 0;  /* Fresh old-gen object: no mark state carried
+                          over from its nursery life. */
     copy->next = vm->oldFirst;
     vm->oldFirst = copy;
     vm->oldCount++;
@@ -369,7 +371,8 @@ void objectPrint(Object* object) {
 
 void freeVM(VM *vm) {
   vm->stackSize = 0;
-  promoteAll(vm);  /* no-op count-wise; keeps invariants simple */
+  promoteAll(vm);  /* young objects still referenced via the remset
+                      get promoted, so teardown is uniform */
 
   Object* object = vm->oldFirst;
   while (object) {
@@ -523,7 +526,10 @@ void test7() {
   /* Re-fetch the promoted pair (the young pointer is a stale husk). */
   Object* p = vm->stack[vm->stackSize - 1];
 
-  /* Storing NULL must not be range-checked into "is young". */
+  /* Storing NULL must not be range-checked into "is young". This
+     verifies NULL flows safely through barrier and promotion; it does
+     not exercise the guard itself — on any realistic heap layout NULL
+     cannot land inside the nursery's address range. */
   objectSetTail(vm, p, NULL);
   minorGC(vm);
   check(p->tail == NULL, "NULL should stay NULL.");
