@@ -310,11 +310,25 @@ void test6() {
 void overflowTest() {
   printf("Overflow Test: heap capacity is enforced.\n");
   VM* vm = newVM();
-  /* Exactly HEAP_MAX live objects fit; the next one must check-fail.
-     Only compiled into the OVERFLOW_TEST build. */
-  for (int i = 0; i < HEAP_MAX + 1; i++) {
+
+  /* Build a chain: each iteration adds two live objects while the VM
+     stack stays at ~2 entries. A flat pushInt loop could never test
+     the heap — the stack is the only root set, so it would hit
+     STACK_MAX (256) long before HEAP_MAX (4096) fills. */
+  pushInt(vm, 0);
+  for (int i = 1; i < HEAP_MAX / 2; i++) {
     pushInt(vm, i);
+    pushPair(vm);
   }
+
+  /* From-space now holds HEAP_MAX - 1 live objects. One more fits,
+     exactly filling it. */
+  pushInt(vm, -1);
+
+  /* One past the limit: gc runs but the chain is all live, nothing is
+     freed, and the capacity check must fire. */
+  pushInt(vm, -2);
+
   printf("ERROR: overflow was not caught.\n");
 }
 
