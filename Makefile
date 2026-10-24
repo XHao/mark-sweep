@@ -1,13 +1,28 @@
-BIN=markandsweep
+CC      ?= cc
+CFLAGS  = -ggdb -std=gnu99 -Wall
+SRCS    = $(wildcard gc*.c)
+BINS    = $(SRCS:.c=)
 
-.PHONY : clean 
+all: $(BINS)
 
-$(BIN) : main.c
-	$(CC)  -ggdb -std=gnu99  main.c -o $(BIN)
+markandsweep: main.c
+	$(CC) $(CFLAGS) main.c -o $@
 
-clean :
-	rm -f $(BIN) *~
+gc%: gc%.c
+	$(CC) $(CFLAGS) $< -o $@
 
-run : $(BIN)
-	valgrind  --leak-check=yes ./$(BIN)
+test: all
+	@ok=0; fail=0; \
+	for b in $(BINS); do \
+	  if ./$$b > /dev/null 2>&1; then echo "PASS $$b"; ok=$$((ok+1)); \
+	  else echo "FAIL $$b"; fail=$$((fail+1)); fi; \
+	done; \
+	echo "$$ok passed, $$fail failed"; \
+	test $$fail -eq 0
 
+run: markandsweep
+	valgrind --leak-check=yes ./markandsweep
+
+.PHONY: all test run clean
+clean:
+	rm -f $(BINS) markandsweep *~
