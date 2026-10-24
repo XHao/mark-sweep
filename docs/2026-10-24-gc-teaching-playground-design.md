@@ -128,8 +128,13 @@ mark-sweep/
   无需额外字段
 - **Major GC**（minor 后 `oldCount >= oldMax` 时触发）：nursery 存活者全部晋升，
   然后对 old 链表做 gc1 式迭代标记清扫
-- **可观测性**：统计并输出 minor / major 次数、晋升对象数；perfTest 跑完可
-  直观看到分代假设生效（major 次数远少于 gc3 的收集次数）
+- **可观测性**：统计并输出 minor / major 次数、晋升对象数。~~perfTest 跑完可
+  直观看到分代假设生效（major 次数远少于 gc3 的收集次数）~~
+  **修订（2026-10-24，终审后）**：该验收信号在"首次存活即晋升"策略 +
+  原 perfTest 纯 churn 负载下不可达（实测 78 minor / 32 major / 636 晋升——
+  每次 nursery 填满时恰在栈上的短命对象被晋升，污染老年代）。交付版本保留
+  原负载与真实数字，在 perfTest 注释中说明原因；年龄阈值/survivor 空间
+  列为后续可选扩展（正是注释要教的那一课）
 - **杀手测试**：年轻对象仅被老年代对象引用，minor GC 后必须存活（已晋升）。
   同 gc2 提供 `#ifdef REMSET_OFF` 预期失败编译版，`make test` 验证其确实失败
   （用内容断言检测，避免未定义行为）

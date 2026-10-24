@@ -543,6 +543,17 @@ void perfTest() {
       pop(vm);
     }
   }
+
+  /* Honest numbers for this workload: minors far outnumber majors,
+    but majors do fire regularly. Promote-on-first-survival (the
+    simplification this file teaches) promotes every short-lived int
+    that happens to sit on the stack when the nursery fills, so the
+    old gen pollutes and a major is needed to sweep it. Real JVMs add
+    age thresholds and survivor spaces for exactly this reason — see
+    the header. A workload with a long-lived resident set and
+    immediate-drop churn would show ~1 major in ~78 minors, but it
+    would no longer be the same program gc3 runs, and comparing
+    collection counts across different programs would be dishonest. */
   printf("%d minor GCs, %d major GCs, %d promotions.\n",
          vm->minorGcCount, vm->majorGcCount, vm->promotedCount);
   freeVM(vm);
