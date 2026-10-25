@@ -8,12 +8,18 @@
  * under a stop-the-world pause. The hybrid barrier trades a little
  * floating garbage for eliminating that re-scan.
  *
- * Mapping to runtime/atomic_pointer.go's writePointer:
+ * Mapping to the hybrid barrier's pseudo-code in Go proposal 17503
+ * ("eliminate STW stack re-scanning", the design that landed in 1.8):
  *
  *   shade(*slot);                       // deletion half (Yuasa)
- *   if current stack is black:          // insertion half (Dijkstra)
+ *   if current stack is grey:           // insertion half (Dijkstra)
  *     shade(ptr);
  *   *slot = ptr;
+ *
+ * Go conditions the insertion half on the writing goroutine's stack
+ * color; this toy has no per-mutator stack color, so objectSetHead/
+ * Tail below use the classic Dijkstra destination form instead: shade
+ * the NEW value when the OWNER object is black.
  *
  * In this toy the "stack" is the VM stack. gcStart pre-grays every
  * root — the equivalent of snapshotting all stacks at GC start — so
