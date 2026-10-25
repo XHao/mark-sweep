@@ -11,13 +11,13 @@ markandsweep: main.c
 gc%: gc%.c
 	$(CC) $(CFLAGS) $< -o $@
 
-test: all gc2_bo gc3_overflow gc4_bo gc6_dijkstra gc6_yuasa gc7_bo gc7_overflow
+test: all gc2_bo gc3_overflow gc4_bo gc6_dijkstra gc6_yuasa gc7_bo gc7_overflow gc8_bo
 	@ok=0; fail=0; \
 	for b in $(BINS); do \
 	  if ./$$b > /dev/null 2>&1; then echo "PASS $$b"; ok=$$((ok+1)); \
 	  else echo "FAIL $$b"; fail=$$((fail+1)); fi; \
 	done; \
-	for b in gc2_bo gc3_overflow gc4_bo gc6_dijkstra gc6_yuasa gc7_bo gc7_overflow; do \
+	for b in gc2_bo gc3_overflow gc4_bo gc6_dijkstra gc6_yuasa gc7_bo gc7_overflow gc8_bo; do \
 	  if ./$$b > /dev/null 2>&1; then echo "UNEXPECTED-PASS $$b"; fail=$$((fail+1)); \
 	  else echo "EXPECTED-FAIL $$b"; ok=$$((ok+1)); fi; \
 	done; \
@@ -29,6 +29,9 @@ gc3_overflow: gc3_copying.c
 
 gc7_overflow: gc7_regions.c
 	$(CC) $(CFLAGS) -DEXHAUST_TEST gc7_regions.c -o $@
+
+gc8_bo: gc8_zgc.c
+	$(CC) $(CFLAGS) -DLOAD_BARRIER_OFF gc8_zgc.c -o $@
 
 gc7_bo: gc7_regions.c
 	$(CC) $(CFLAGS) -DRSET_OFF gc7_regions.c -o $@
@@ -50,4 +53,4 @@ run: markandsweep
 
 .PHONY: all test run clean
 clean:
-	rm -f $(BINS) markandsweep gc2_bo gc3_overflow gc4_bo gc6_dijkstra gc6_yuasa gc7_bo gc7_overflow *~
+	rm -f $(BINS) markandsweep gc2_bo gc3_overflow gc4_bo gc6_dijkstra gc6_yuasa gc7_bo gc7_overflow gc8_bo *~
