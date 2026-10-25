@@ -400,6 +400,24 @@ void test7() {
     pushInt(vm, i);
   }
   check(vm->numObjects == 40, "Holes should have been reused.");
+
+  /* Round two, chains still rooted: the 20 ints die, the chains
+     survive a compaction that runs over previous survivors. freeVM
+     can never pin this — its gc sees an empty root set. */
+  for (int i = 0; i < 4 * (2 * depth - 1); i++) {
+    pop(vm);
+  }
+  gc(vm);
+  check(vm->numObjects == 20, "Chains should survive a second round.");
+  check(vm->stack[0]->tail->value == 0, "Content across two rounds.");
+
+  /* Round three: two chains die. If survivors' marks ever leak across
+     rounds, these chains become un-collectable and this fails. */
+  pop(vm);
+  pop(vm);
+  gc(vm);
+  check(vm->numObjects == 10, "Dead chains must not leak across rounds.");
+  check(vm->stack[0]->tail->value == 0, "Content across three rounds.");
   freeVM(vm);
 }
 

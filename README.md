@@ -1,7 +1,7 @@
 # mark-sweep — a GC teaching playground
 
 Sample code for [Baby's First Garbage Collector][article], grown into a
-five-stage tour of how real collectors work. Each `gcN.c` is one
+six-stage tour of how real collectors work. Each `gcN.c` is one
 self-contained, runnable collector; read them in order and diff each
 against its predecessor — the diff *is* the lesson.
 
