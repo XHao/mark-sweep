@@ -55,7 +55,11 @@ remset 清理、`remembered`/`marked` 处理逐字沿用 gc4。**survivor 溢出
 年代标记清扫只碰老对象），其余不变。触发条件不变（minor 后
 `oldCount >= oldMax`）。
 
-**写屏障 / remset / `objectSetHead/Tail`**：逐字不动。
+**写屏障 / remset / `objectSetHead/Tail`**：屏障与记录机制逐字不动。**修订
+（2026-10-25，执行后）**：remset 的**清理**语义必须改——gc4 可无条件清空（立即
+晋升使 old→young 边活不过一次 minor），老化后边可跨多个 minor 存续，条目须按
+"边的存续"保留（仍指年轻者留、否则移除并清 `remembered`），否则第二跳 minor
+静默丢失仅经老年代可达的年轻对象（t5 的晋升计数断言捕获）。
 
 ## 4. 测试
 
