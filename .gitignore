@@ -1,6 +1,7 @@
 *~
 markandsweep
 gc[0-9]_*
+!gc[0-9]_*.c
 gc2_bo
 gc3_overflow
 gc4_bo
