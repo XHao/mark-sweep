@@ -1,7 +1,7 @@
 # mark-sweep — a GC teaching playground
 
 Sample code for [Baby's First Garbage Collector][article], grown into a
-six-stage tour of how real collectors work. Each `gcN.c` is one
+seven-stage tour of how real collectors work. Each `gcN.c` is one
 self-contained, runnable collector; read them in order and diff each
 against its predecessor — the diff *is* the lesson.
 
@@ -15,6 +15,7 @@ against its predecessor — the diff *is* the lesson.
 | `gc3_copying.c` | Cheney semispace copy, bump-pointer allocation, forwarding pointers, root rewriting | JVM young gen, every moving GC |
 | `gc4_generational.c` | weak generational hypothesis, promotion, remembered set, minor/major split | JVM G1, .NET's generational GC |
 | `gc5_compact.c` | Lisp2 mark-compact: three passes, sliding compaction, dedicated forward word, 100% heap usable | JVM full-GC compaction, .NET's compacting GC |
+| `gc6_hybrid.c` | Go-style hybrid write barrier (insertion + deletion halves), unbarriered root writes, simulated concurrent marking | Go 1.8+ runtime write barrier |
 
 Build and test everything (three expected-fail binaries prove the
 barriers actually matter — compile them out and the killer tests
@@ -33,6 +34,7 @@ wholesale, so diffing them against gc2 would be noise:
     diff gc0_baseline.c   gc3_copying.c      # semispace copy (no mark bits)
     diff gc0_baseline.c   gc4_generational.c # gc3's nursery + gc0's old gen
     diff gc3_copying.c   gc5_compact.c      # mark-compact (single space, in place)
+    diff gc2_incremental.c gc6_hybrid.c     # hybrid barrier + pushRoot
 
 The killer tests (`test7` in gc2, `test5` in gc4) are the ones whose
 failure the barriers exist to prevent.
