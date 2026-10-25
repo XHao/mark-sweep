@@ -14,6 +14,7 @@ against its predecessor — the diff *is* the lesson.
 | `gc2_incremental.c` | tricolor abstraction, incremental marking, Yuasa write barrier, mutator interleaving | Go's GC, JVM concurrent markers |
 | `gc3_copying.c` | Cheney semispace copy, bump-pointer allocation, forwarding pointers, root rewriting | JVM young gen, every moving GC |
 | `gc4_generational.c` | weak generational hypothesis, promotion, remembered set, minor/major split | JVM G1, .NET's generational GC |
+| `gc5_compact.c` | Lisp2 mark-compact: three passes, sliding compaction, dedicated forward word, 100% heap usable | JVM full-GC compaction, .NET's compacting GC |
 
 Build and test everything (three expected-fail binaries prove the
 barriers actually matter — compile them out and the killer tests
@@ -31,6 +32,7 @@ wholesale, so diffing them against gc2 would be noise:
     diff gc1_iterative.c  gc2_incremental.c  # tricolor + write barrier
     diff gc0_baseline.c   gc3_copying.c      # semispace copy (no mark bits)
     diff gc0_baseline.c   gc4_generational.c # gc3's nursery + gc0's old gen
+    diff gc3_copying.c   gc5_compact.c      # mark-compact (single space, in place)
 
 The killer tests (`test7` in gc2, `test5` in gc4) are the ones whose
 failure the barriers exist to prevent.
