@@ -223,13 +223,15 @@ void census(VM* vm) {
   }
   free(work.items);
 
+  /* Marks STAY SET: the evacuation below consumes them (an unmarked
+     object is garbage — rset seeds owned by dead objects point at
+     unmarked values and must be dropped, not followed). young/mixed
+     clear the marks when the pause ends. */
   for (int r = 0; r < REGION_COUNT; r++) {
     vm->regions[r].live = 0;
     for (int j = 0; j < vm->regions[r].used; j++) {
-      Object* object = &regionBase(vm, r)[j];
-      if (object->marked) {
+      if (regionBase(vm, r)[j].marked) {
         vm->regions[r].live++;
-        object->marked = 0;
       }
     }
   }
@@ -251,21 +253,28 @@ Object* copyIntoOld(VM* vm, Object* object) {
   return copy;
 }
 
-/* Evacuate one region: copy its live objects elsewhere and rewrite
-   every incoming edge (stack roots first, then the region's rset).
-   Fields of a copy that point into OTHER regions are recorded in the
-   target region's rset — the old object's entries die with its slots,
-   so this is a correctness requirement, not an optimization. */
-int evacuateRegion(VM* vm, int r) {
+/* Evacuate the whole collection set as ONE closure: seed from every
+   stack root and every rset entry whose OWNER is not itself being
+   evacuated (the cset filter — a dead owner's edge dies with it; a
+   live owner inside the cset is copied here and its fields re-route
+   below). Copy each cset object once, on first visit; fields pointing
+   into the cset feed the worklist, fields leaving it land in the
+   target region's rset. A unit closure is REQUIRED: per-region
+   evacuation would lose objects reachable only from a region visited
+   later in the same pause. */
+int evacuateCset(VM* vm, const int* cset) {
   Slotlist slots = {NULL, 0, 0};
 
   for (int i = 0; i < vm->stackSize; i++) {
-    if (vm->stack[i] != NULL && regionOf(vm, vm->stack[i]) == r) {
+    if (vm->stack[i] != NULL && cset[regionOf(vm, vm->stack[i])]) {
       slotPush(&slots, &vm->stack[i]);
     }
   }
-  for (int i = 0; i < vm->regions[r].rsetCount; i++) {
-    slotPush(&slots, vm->regions[r].rset[i]);
+  for (int r = 0; r < REGION_COUNT; r++) {
+    if (!cset[r]) continue;
+    for (int i = 0; i < vm->regions[r].rsetCount; i++) {
+      slotPush(&slots, vm->regions[r].rset[i]);
+    }
   }
 
   int moved = 0;
@@ -273,10 +282,11 @@ int evacuateRegion(VM* vm, int r) {
     Object** slot = slots.items[--slots.count];
     Object* object = *slot;
     if (object == NULL) continue;
+    if (!cset[regionOf(vm, object)]) continue;   /* outside: not ours */
+    if (!object->marked) continue;  /* garbage: dead owners' stale rset
+                                       entries point here — drop them */
 
-    if (regionOf(vm, object) != r) continue;   /* other region: not ours */
-
-    if (object->type == OBJ_FORWARDED) {       /* second visit */
+    if (object->type == OBJ_FORWARDED) {         /* second visit */
       *slot = object->forward;
       continue;
     }
@@ -288,12 +298,13 @@ int evacuateRegion(VM* vm, int r) {
     *slot = copy;
 
     if (copy->type == OBJ_PAIR) {
-      /* Route each field: same-region targets go on the worklist;
-         cross-region targets get the COPY's slot into their rset. */
+      /* Route each field: targets inside the cset feed the worklist
+         (they will be copied or husk-followed); targets leaving it get
+         the COPY's slot into their region's rset. */
       Object** fields[2] = { &copy->head, &copy->tail };
       for (int f = 0; f < 2; f++) {
         if (*fields[f] == NULL) continue;
-        if (regionOf(vm, *fields[f]) == r) {
+        if (cset[regionOf(vm, *fields[f])]) {
           slotPush(&slots, fields[f]);
         } else {
           rsetAdd(&vm->regions[regionOf(vm, *fields[f])], fields[f]);
@@ -303,24 +314,70 @@ int evacuateRegion(VM* vm, int r) {
   }
 
   free(slots.items);
-  vm->regions[r].type = REGION_FREE;
-  vm->regions[r].used = 0;
-  vm->regions[r].live = 0;
-  vm->regions[r].rsetCount = 0;
-  if (vm->edenIndex == r) vm->edenIndex = -1;
+
+  for (int r = 0; r < REGION_COUNT; r++) {
+    if (cset[r]) {
+      vm->regions[r].type = REGION_FREE;
+      vm->regions[r].used = 0;
+      vm->regions[r].live = 0;
+      vm->regions[r].rsetCount = 0;
+      if (vm->edenIndex == r) vm->edenIndex = -1;
+    } else {
+      /* Clear the census marks this pause consumed. */
+      for (int j = 0; j < vm->regions[r].used; j++) {
+        regionBase(vm, r)[j].marked = 0;
+      }
+    }
+  }
   return moved;
+}
+
+/* Retire fully-dead regions for free — no evacuation needed (G1
+   reclaims empty regions the same way during marking). Called after a
+   census, so live[] is fresh. Counts toward regionsEvacuated. */
+void freeDeadRegions(VM* vm) {
+  for (int r = 0; r < REGION_COUNT; r++) {
+    if (vm->regions[r].type == REGION_FREE) continue;
+    if (vm->regions[r].used > 0 && vm->regions[r].live == 0) {
+      vm->regions[r].type = REGION_FREE;
+      vm->regions[r].used = 0;
+      vm->regions[r].rsetCount = 0;
+      if (vm->edenIndex == r) vm->edenIndex = -1;
+      vm->regionsEvacuated++;
+    }
+  }
 }
 
 void youngGC(VM* vm) {
   vm->youngGcCount++;
   vm->oldTarget = -1;
-  int moved = 0;
+
+  /* Census first: it feeds both the free-dead pass and the target
+     budget below. (Real G1 gets its liveness from the concurrent
+     cycle; our young pays one stop-the-world census for it.) */
+  census(vm);
+  freeDeadRegions(vm);
+
+  int cset[REGION_COUNT] = {0};
+  int regions = 0;
+  int live = 0;
   for (int r = 0; r < REGION_COUNT; r++) {
-    if (vm->regions[r].type == REGION_EDEN) {
-      moved += evacuateRegion(vm, r);
-      vm->regionsEvacuated++;
+    if (vm->regions[r].type == REGION_EDEN && vm->regions[r].live > 0) {
+      cset[r] = 1;
+      regions++;
+      live += vm->regions[r].live;
     }
   }
+
+  /* Up-front target budget: unit evacuation frees cset regions only
+     at the end, so the copies must fit in the free regions that exist
+     NOW. (G1 pipelines this with incremental region draining; we pay
+     the simpler up-front rule.) */
+  int need = (live + REGION_SIZE - 1) / REGION_SIZE;
+  check(freeRegions(vm) >= need, "Heap exhausted: young needs target regions");
+
+  int moved = evacuateCset(vm, cset);
+  vm->regionsEvacuated += regions;
   vm->objectsMoved += moved;
   printf("Young GC: evacuated %d objects.\n", moved);
 }
@@ -329,11 +386,15 @@ void mixedGC(VM* vm) {
   vm->mixedGcCount++;
   vm->oldTarget = -1;
   census(vm);   /* fresh liveness: the selection must not use stale live */
+  freeDeadRegions(vm);
 
   /* Dirtiest first: fewest live. Full regions are skipped (no room
-     won). Up to CSET_BUDGET regions — bounded work per pause. */
+     won). Up to CSET_BUDGET regions AND bounded by the target budget:
+     the pause only picks regions whose live set fits the free regions
+     that exist now. */
   int cset[CSET_BUDGET];
   int n = 0;
+  int live = 0;
   for (int pick = 0; pick < CSET_BUDGET; pick++) {
     int best = -1;
     for (int r = 0; r < REGION_COUNT; r++) {
@@ -345,14 +406,17 @@ void mixedGC(VM* vm) {
       if (best < 0 || vm->regions[r].live < vm->regions[best].live) best = r;
     }
     if (best < 0) break;
+    int need = (live + vm->regions[best].live + REGION_SIZE - 1) / REGION_SIZE;
+    if (need > freeRegions(vm)) break;
     cset[n++] = best;
+    live += vm->regions[best].live;
   }
 
   int moved = 0;
-  for (int i = 0; i < n; i++) {
-    moved += evacuateRegion(vm, cset[i]);
-    vm->regionsEvacuated++;
-  }
+  int inCset[REGION_COUNT] = {0};
+  for (int i = 0; i < n; i++) inCset[cset[i]] = 1;
+  moved = evacuateCset(vm, inCset);
+  vm->regionsEvacuated += n;
   vm->objectsMoved += moved;
   printf("Mixed GC: evacuated %d region(s), %d objects.\n", n, moved);
 }
@@ -560,9 +624,9 @@ void test5() {
   }                              /* 7671 objects across 15 regions */
   Object* top = vm->stack[vm->stackSize - 1];
   Object* mid = top;
-  for (int i = 0; i < 3536; i++) mid = mid->head;  /* keep last 300 */
+  for (int i = 0; i < 3536; i++) mid = mid->head;  /* keep last 299 pairs */
   pop(vm);
-  push(vm, mid);                 /* live set: 300 objects */
+  push(vm, mid);                 /* live set: 599 objects (2*299+1) */
 
   for (int i = 0; i < 10; i++) { /* garbage to cross the 7681st alloc */
     pushInt(vm, i);
@@ -571,6 +635,10 @@ void test5() {
 
   check(vm->youngGcCount == 1, "The ladder should fire one young GC.");
   check(vm->mixedGcCount == 0, "Young alone freed enough regions.");
+  /* Copy cost must track the live set, not the swept area: without
+     the cset filter on rset seeds, dead owners' stale entries drag
+     whole garbage chains and this moves 7168. */
+  check(vm->objectsMoved == 599, "Young should move only the live set.");
 
   /* The kept suffix must be intact after the evacuation. */
   Object* object = vm->stack[vm->stackSize - 1];
@@ -645,9 +713,12 @@ void test7() {
   check(vm->regionsEvacuated - before == CSET_BUDGET,
         "A mixed pause evacuates at most CSET_BUDGET regions.");
 
-  /* The evacuated 128-live regions land in fresh regions and count as
-     dirty again on the next census — so pause two ALSO evacuates a
-     full budget. The assertion is the point: EVERY pause is bounded. */
+  /* Pause two also evacuates a full budget: the third dirty region
+     (never touched) plus pause one's copy-target region, which census
+     now sees as 510-live — near-full all-live regions get re-picked
+     because the metric is absolute liveness. Real G1 applies a
+     liveness THRESHOLD here. The assertion is the point: every pause
+     is bounded regardless. */
   mixedGC(vm);
   check(vm->regionsEvacuated - before == 2 * CSET_BUDGET,
         "Every mixed pause is bounded by CSET_BUDGET.");
@@ -690,6 +761,20 @@ void test8() {
   freeVM(vm);
 }
 
+void exhaustTest() {
+  printf("Exhaust Test: a fully-live heap is honestly refused.\n");
+  VM* vm = newVM();
+  /* One rooted chain bigger than the heap can hold: the ladder runs
+     young, then mixed, then admits defeat via check. Only compiled
+     into the EXHAUST_TEST build. */
+  pushInt(vm, 0);
+  for (int i = 1; i < 4100; i++) {
+    pushInt(vm, i);
+    pushPair(vm);
+  }
+  printf("ERROR: exhaustion was not caught.\n");
+}
+
 void perfTest() {
   printf("Performance Test.\n");
   VM* vm = newVM();
@@ -729,6 +814,10 @@ int main(int argc, const char * argv[]) {
   test7();
   test8();
   perfTest();
+
+#ifdef EXHAUST_TEST
+  exhaustTest();
+#endif
 
   return 0;
 }

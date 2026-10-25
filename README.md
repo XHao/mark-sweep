@@ -22,7 +22,7 @@ against its predecessor — the diff *is* the lesson.
 | `gc6_hybrid.c` | Go-style hybrid write barrier (insertion + deletion halves), unbarriered root writes, simulated concurrent marking | Go 1.8+ runtime write barrier |
 | `gc7_regions.c` | regionized heap, slot-level per-region remembered sets, per-region evacuation, garbage-first mixed pauses under a CSET budget | JVM G1 |
 
-Build and test everything (five expected-fail binaries prove the
+Build and test everything (seven expected-fail binaries prove the
 barriers actually matter — compile them out and the killer tests
 catch the loss):
 
@@ -44,6 +44,6 @@ wholesale, so diffing them against gc2 would be noise:
     diff gc3_copying.c   gc7_regions.c     # regions + rssets + mixed selection
 
 The killer tests (`test7` in gc2, `test5` in gc4, `test8` and
-`test9` in gc6) are the ones whose failure the barriers exist to
-prevent — each barrier half has its own killer test and its own
-expected-fail build that removes it.
+`test9` in gc6, `test8` in gc7) are the ones whose failure the
+barriers exist to prevent — each barrier half has its own killer
+test and its own expected-fail build that removes it.
