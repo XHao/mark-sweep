@@ -1,0 +1,149 @@
+{
+  "$schema": "https://puremourning.github.io/vimspector/schema/vimspector.schema.json",
+  "configurations": {
+    "gc7_regions": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc7_regions",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc7_bo": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc7_bo",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc7_overflow": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc7_overflow",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc6_hybrid": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc6_hybrid",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc6_yuasa": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc6_yuasa",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc6_dijkstra": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc6_dijkstra",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc5_compact": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc5_compact",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc4_generational": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc4_generational",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc4_bo": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc4_bo",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc3_copying": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc3_copying",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc3_overflow": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc3_overflow",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc2_incremental": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc2_incremental",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc2_bo": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc2_bo",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc1_iterative": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc1_iterative",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "gc0_baseline": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/gc0_baseline",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    },
+    "markandsweep": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/markandsweep",
+        "cwd": "${workspaceRoot}",
+        "stopOnEntry": false
+      }
+    }
+  }
+}
