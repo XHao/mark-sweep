@@ -1,6 +1,6 @@
-# 七阶段 GC 算法实现讲解
+# 八阶段 GC 算法实现讲解
 
-本文按构建顺序讲解本仓库七个收集器的**算法本身**：每一阶段解决前一阶段留下的什么问题、核心思想如何落成最小实现、哪些测试锚定了正确性。每节配 `file:line` 引用，可直接跳进源码对照阅读。
+本文按构建顺序讲解本仓库八个收集器的**算法本身**：每一阶段解决前一阶段留下的什么问题、核心思想如何落成最小实现、哪些测试锚定了正确性。每节配 `file:line` 引用，可直接跳进源码对照阅读。
 
 阅读建议：先读各文件头部注释（算法自述），再按 README 的 diff 命令看相邻差异，最后回到本文看"为什么"。测试是最诚实的文档——每节的"反证"小节告诉你：**把算法的某一半拆掉，哪个测试会以什么方式失败**。
 
@@ -13,6 +13,7 @@ gc0 mark-sweep ──递归爆栈──▶ gc1 worklist ──原子sweep停顿�
 gc3 Cheney复制 ──50%空间浪费──▶ gc5 Lisp2压缩        gc2 单屏障 ──栈重扫故事──▶ gc6 混合屏障
         │
         └─弱分代假设─▶ gc4 分代（gc3 的 nursery + gc0 的老年代）
+                        └─首次晋升之弊─▶ gc4s 老化（survivor 空间 + 年龄阈值）
 ```
 
 ---
@@ -114,6 +115,40 @@ gc:  toCount = 0
 
 ---
 
+## gc4s — 老化迭代：survivor 空间 + 年龄阈值（`gc4_survivor.c`）
+
+**问题**：上一节"诚实的故事"不是注释修辞——78 minor / 32 major / 636 晋升是
+首次存活即晋升在 churn 负载下的必然结局：每次 nursery 填满时恰在栈上的短命
+对象全体被授予终身，老年代被污染。gc4 原地保留这个第一刀；本文件是修正，
+`diff gc4_generational.c gc4_survivor.c` 就是全部老化增量。
+
+**机制**（HotSpot 同构的最小版）：
+
+- **双空间 nursery**：eden 与 survivor 每次 minor 后互换角色——gc3 的空间
+  互换技巧用在年轻代内部。平时只有 eden 活着（分配照旧 bump，
+  gc4_survivor.c:336）
+- **老化晋升**：`Object` 加 1 字节 `age`；复制点分流
+  （`copyYoung`，gc4_survivor.c:172）——`age + 1 >= AGE_MAX`（=2）则 malloc
+  晋升老年代，否则复制进 survivor、`age+1` 继续年轻。出生 0 → 存活一轮 1 →
+  第二轮晋升
+- **remset 按边的存续保留**（gc4_survivor.c:239）——这是执行期抓到的真缺陷：
+  gc4 可以每个 minor 无条件清空 remembered set，因为立即晋升使 old→young 边
+  活不过一次收集；老化后边可以跨多个 minor 存续，无条件清空会在下一跳 minor
+  **静默丢弃**仅经老年代可达的年轻对象（t5 的晋升计数断言咬住了它）。修复：
+  收集末尾压缩 remset——仍指年轻者留、否则移除并清 `remembered`
+
+**头条与数字的诚实**：同负载下 **83 minor / 0 major / 0 晋升**（gc4 为
+78/32/636）。minor 反而多 5 次：存活者占据 eden 尾部，每轮净容量略降——这个
+漂移本身写着"为什么 HotSpot 有独立的 survivor 空间"。perfTest 只**断言两个
+零**（gc4_survivor.c:625）：minor 数会随实现细节漂移，"老年代零污染"才是
+分代假设要兑现的东西。t1（gc4_survivor.c:433）两行断言讲完年龄语义：一次
+minor 后仍年轻、两次后晋升。
+
+**没有失败构建**：老化没有可关闭的屏障语义，行为由 t1/t6 的精确计数与
+perfTest 的零断言直接锚定。
+
+---
+
 ## gc5 — Lisp2 标记-压缩：滑动三趟（`gc5_compact.c`）
 
 **问题**：gc3 用一半堆换无碎片。能不能 100% 堆、也无碎片？能——代价是多趟。
@@ -168,17 +203,17 @@ Go 以**写方 goroutine 的栈色**为条件；本玩具没有 per-mutator 栈�
 
 ---
 
-## 七阶段横向对比
+## 八阶段横向对比
 
-| | gc0/基线 | gc1 | gc2 | gc3 | gc4 | gc5 | gc6 |
-|---|---|---|---|---|---|---|---|
+| | gc0/基线 | gc1 | gc2 | gc3 | gc4 | gc4s | gc5 | gc6 |
+|---|---|---|---|---|---|---|---|---|
 | 收集停顿 | 全程 STW | 全程 STW | 标记摊入 mutator，sweep 原子 | STW 但只碰活对象 | minor 便宜 / major 全堆 | STW，O(占用) | 同 gc2 |
 | 分配 | malloc | malloc | malloc | **bump O(1)** | nursery bump | bump O(1) | malloc |
-| 空间利用 | 碎片化 | 碎片化 | 碎片化 | **≤50%** | 分代各计 | **100%** | 碎片化 |
-| 对象顺序 | 稳定 | 稳定 | 稳定 | BFS 重排 | 晋升重排 | **保序滑动** | 稳定 |
-| 每次收集成本 | O(堆) | O(堆) | 活集 + 摊销 | O(活集) | minor O(nursery) | O(占用) | 活集 + 摊销 |
-| 屏障 | 无 | 无 | Yuasa 删除 | 无 | 代际 remset | 无 | 混合两半 |
-| 失败构建 | — | — | `gc2_bo` | `gc3_overflow` | `gc4_bo` | — | `gc6_dijkstra` / `gc6_yuasa` |
+| 空间利用 | 碎片化 | 碎片化 | 碎片化 | **≤50%** | 分代各计 | 分代各计 | **100%** | 碎片化 |
+| 对象顺序 | 稳定 | 稳定 | 稳定 | BFS 重排 | 晋升重排 | 晋升重排 | **保序滑动** | 稳定 |
+| 每次收集成本 | O(堆) | O(堆) | 活集 + 摊销 | O(活集) | minor O(nursery) | minor O(nursery) | O(占用) | 活集 + 摊销 |
+| 屏障 | 无 | 无 | Yuasa 删除 | 无 | 代际 remset | 代际 remset（按边存续） | 无 | 混合两半 |
+| 失败构建 | — | — | `gc2_bo` | `gc3_overflow` | `gc4_bo` | —（零断言直钉） | — | `gc6_dijkstra` / `gc6_yuasa` |
 
 生产系统是这些原语的**组合**：JVM young gen = gc3+gc4；G1 = gc4+gc5 的区域化变体 + gc2 式并发标记；Go = gc2 的交错 + gc6 的混合屏障 + gc5 式的整理演进。
 
@@ -198,3 +233,5 @@ Go 以**写方 goroutine 的栈色**为条件；本玩具没有 per-mutator 栈�
 | remembered set | gc4 | 记录跨代引用的额外根集合 |
 | sliding compaction 滑动压缩 | gc5 | 保序地把存活者挤到堆头 |
 | hybrid write barrier | gc6 | 插入 + 删除两半并用的写屏障（Go 1.8+） |
+| age threshold / tenuring | gc4s | 存活 N 次收集后才晋升老年代（HotSpot 同构） |
+| survivor space | gc4s | 每次 minor 与 eden 互换角色的年轻代第二空间 |
