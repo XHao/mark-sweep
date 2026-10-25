@@ -1,7 +1,10 @@
 # mark-sweep — a GC teaching playground
 
 Sample code for [Baby's First Garbage Collector][article], grown into a
-seven-stage tour of how real collectors work. Each `gcN.c` is one
+seven-stage tour. For a guided walk through the algorithms themselves —
+what problem each stage inherits, how the invariant lands in code, and
+which killer test disproves which shortcut — read
+[docs/algorithms.md](docs/algorithms.md) of how real collectors work. Each `gcN.c` is one
 self-contained, runnable collector; read them in order and diff each
 against its predecessor — the diff *is* the lesson.
 
