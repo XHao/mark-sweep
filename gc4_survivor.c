@@ -11,7 +11,9 @@
  * other space and AGE; only after AGE_MAX survivals do they promote
  * to the old gen. Short-lived objects now die young before the
  * threshold — in scratch space, at zero cost. The same churn workload
- * drops to 78 minors, 0 majors, 0 promotions (pinned by perfTest).
+ * drops to 83 minors, 0 majors, 0 promotions — only the zeros are
+ * pinned by perfTest's checks; the minor count drifts up (78 -> 83)
+ * because survivors occupy eden's tail between collections.
  *
  * Mechanically this is gc4's slot worklist with one decision added at
  * the copy point (survive-young vs promote), plus the gc3
@@ -607,16 +609,10 @@ void perfTest() {
     }
   }
 
-  /* Honest numbers for this workload: minors far outnumber majors,
-    but majors do fire regularly. Promote-on-first-survival (the
-    simplification this file teaches) promotes every short-lived int
-    that happens to sit on the stack when the nursery fills, so the
-    old gen pollutes and a major is needed to sweep it. Real JVMs add
-    age thresholds and survivor spaces for exactly this reason — see
-    the header. A workload with a long-lived resident set and
-    immediate-drop churn would show ~1 major in ~78 minors, but it
-    would no longer be the same program gc3 runs, and comparing
-    collection counts across different programs would be dishonest. */
+  /* gc4_generational.c tells the honest story of promote-on-first-
+     survival on this same workload: 32 majors out of 78 collections,
+     because every short-lived int on the stack at a nursery fill got
+     tenured. Aging fixes exactly that; the checks below pin it. */
   printf("%d minor GCs, %d major GCs, %d promotions.\n",
          vm->minorGcCount, vm->majorGcCount, vm->promotedCount);
 

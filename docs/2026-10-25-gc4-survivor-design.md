@@ -16,7 +16,8 @@ gc4 的"首次存活即晋升"是被诚实记录的缺陷：每次 nursery 填�
 `diff gc4_generational.c gc4_survivor.c` 即老化机制的精确增量。
 
 **可量化验收**：同一 perfTest 负载下，gc4_survivor 应得 **78 minor /
-0 major / 0 晋升**——churn 在年龄门槛前死亡，老年代零污染；spec 原始验收
+0 major / 0 晋升**（修订 2026-10-25，实测：minor 为 **83**——存活者占据 eden
+尾部使每轮净容量略降；被断言钉住的只有 0 major / 0 晋升两个零）——churn 在年龄门槛前死亡，老年代零污染；spec 原始验收
 信号"major 远少于 gc3 的 5 次收集"首次成立。该结果由 perfTest 内的
 确定性断言钉死。
 
