@@ -266,16 +266,19 @@ void objectSetHead(VM* vm, Object* pair, Object* value) {
      idle would seed the gray stack and corrupt the next cycle (the
      gc2 lesson). */
   if (vm->gcState == GC_MARKING) {
-#ifndef BARRIER_DIJKSTRA
+#if defined(BARRIER_DIJKSTRA)
+    /* Insertion-only variant: the pre-1.8 Go barrier shape. */
+    shade(vm, value);
+#else
     /* Deletion half (Yuasa): overwriting a field deletes a snapshot
        path; shade the OLD value. */
     shade(vm, pair->head);
     /* Insertion half (Dijkstra): a black object gaining a white
-       reference breaks tricolor; shade the NEW value. */
+       reference breaks tricolor; shade the NEW value. test9 pins this
+       half — the BARRIER_YUASA build deletes it and loses the store. */
+# ifndef BARRIER_YUASA
     if (pair->color == COLOR_BLACK) shade(vm, value);
-#else
-    /* Insertion-only variant: the pre-1.8 Go barrier shape. */
-    shade(vm, value);
+# endif
 #endif
   }
   pair->head = value;
@@ -284,11 +287,13 @@ void objectSetHead(VM* vm, Object* pair, Object* value) {
 
 void objectSetTail(VM* vm, Object* pair, Object* value) {
   if (vm->gcState == GC_MARKING) {
-#ifndef BARRIER_DIJKSTRA
-    shade(vm, pair->tail);
-    if (pair->color == COLOR_BLACK) shade(vm, value);
-#else
+#if defined(BARRIER_DIJKSTRA)
     shade(vm, value);
+#else
+    shade(vm, pair->tail);
+# ifndef BARRIER_YUASA
+    if (pair->color == COLOR_BLACK) shade(vm, value);
+# endif
 #endif
   }
   pair->tail = value;
@@ -297,7 +302,12 @@ void objectSetTail(VM* vm, Object* pair, Object* value) {
 
 /* Simulate an UNBARRIERED stack write, like a goroutine stack store.
    Deliberately shades nothing and drives no GC step — that is the
-   point: the barrier must tolerate this. */
+   point: the barrier must tolerate this.
+   Soundness note: what you push should have come from the stack or
+   the live heap. A pathless WHITE object popped while idle (like
+   test9's w) is the razor's edge: once it is stored into a black
+   object, only the insertion half can save it — the BARRIER_YUASA
+   build loses exactly that. */
 void pushRoot(VM* vm, Object* object) {
   push(vm, object);
 }
@@ -483,6 +493,33 @@ void test8() {
   freeVM(vm);
 }
 
+void test9() {
+  printf("Test 9: The insertion half saves a freshly-stored white object.\n");
+  VM* vm = newVM();
+
+  pushInt(vm, 1);
+  pushInt(vm, 42);
+  Object* g = pushPair(vm);     /* g = (1, 42) */
+  pushInt(vm, 99);
+  Object* w = pop(vm);          /* popped while idle: a pathless WHITE
+                                   object held only by a C local — not
+                                   a root (the parent spec's contract) */
+
+  gcStart(vm);
+  gcStep(vm);                   /* g -> BLACK; 1 and 42 -> gray */
+  pushRoot(vm, w);              /* unbarriered root write, w still WHITE */
+  objectSetTail(vm, g, w);      /* deletion half: 42 already gray, no-op.
+                                   Insertion half: owner is BLACK, so w
+                                   gets shaded — only this half saves it. */
+  gcDrive(vm);
+
+  /* Hybrid: 4 objects. The BARRIER_YUASA build (deletion half only)
+     never shades w and sweeps it despite its root: 3 objects. */
+  check(vm->numObjects == 4, "The insertion half must save the stored object.");
+
+  freeVM(vm);
+}
+
 void perfTest() {
   printf("Performance Test.\n");
   VM* vm = newVM();
@@ -514,6 +551,7 @@ int main(int argc, const char * argv[]) {
   test7();
 #endif
   test8();
+  test9();
   perfTest();
 
   return 0;

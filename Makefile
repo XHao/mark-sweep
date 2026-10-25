@@ -11,13 +11,13 @@ markandsweep: main.c
 gc%: gc%.c
 	$(CC) $(CFLAGS) $< -o $@
 
-test: all gc2_bo gc3_overflow gc4_bo gc6_dijkstra
+test: all gc2_bo gc3_overflow gc4_bo gc6_dijkstra gc6_yuasa
 	@ok=0; fail=0; \
 	for b in $(BINS); do \
 	  if ./$$b > /dev/null 2>&1; then echo "PASS $$b"; ok=$$((ok+1)); \
 	  else echo "FAIL $$b"; fail=$$((fail+1)); fi; \
 	done; \
-	for b in gc2_bo gc3_overflow gc4_bo gc6_dijkstra; do \
+	for b in gc2_bo gc3_overflow gc4_bo gc6_dijkstra gc6_yuasa; do \
 	  if ./$$b > /dev/null 2>&1; then echo "UNEXPECTED-PASS $$b"; fail=$$((fail+1)); \
 	  else echo "EXPECTED-FAIL $$b"; ok=$$((ok+1)); fi; \
 	done; \
@@ -26,6 +26,9 @@ test: all gc2_bo gc3_overflow gc4_bo gc6_dijkstra
 
 gc3_overflow: gc3_copying.c
 	$(CC) $(CFLAGS) -DOVERFLOW_TEST gc3_copying.c -o $@
+
+gc6_yuasa: gc6_hybrid.c
+	$(CC) $(CFLAGS) -DBARRIER_YUASA gc6_hybrid.c -o $@
 
 gc6_dijkstra: gc6_hybrid.c
 	$(CC) $(CFLAGS) -DBARRIER_DIJKSTRA gc6_hybrid.c -o $@
@@ -41,4 +44,4 @@ run: markandsweep
 
 .PHONY: all test run clean
 clean:
-	rm -f $(BINS) markandsweep gc2_bo gc3_overflow gc4_bo gc6_dijkstra *~
+	rm -f $(BINS) markandsweep gc2_bo gc3_overflow gc4_bo gc6_dijkstra gc6_yuasa *~

@@ -17,7 +17,7 @@ against its predecessor — the diff *is* the lesson.
 | `gc5_compact.c` | Lisp2 mark-compact: three passes, sliding compaction, dedicated forward word, 100% heap usable | JVM full-GC compaction, .NET's compacting GC |
 | `gc6_hybrid.c` | Go-style hybrid write barrier (insertion + deletion halves), unbarriered root writes, simulated concurrent marking | Go 1.8+ runtime write barrier |
 
-Build and test everything (four expected-fail binaries prove the
+Build and test everything (five expected-fail binaries prove the
 barriers actually matter — compile them out and the killer tests
 catch the loss):
 
@@ -36,5 +36,7 @@ wholesale, so diffing them against gc2 would be noise:
     diff gc3_copying.c   gc5_compact.c      # mark-compact (single space, in place)
     diff gc2_incremental.c gc6_hybrid.c     # hybrid barrier + pushRoot
 
-The killer tests (`test7` in gc2, `test5` in gc4, `test8` in gc6)
-are the ones whose failure the barriers exist to prevent.
+The killer tests (`test7` in gc2, `test5` in gc4, `test8` and
+`test9` in gc6) are the ones whose failure the barriers exist to
+prevent — each barrier half has its own killer test and its own
+expected-fail build that removes it.
