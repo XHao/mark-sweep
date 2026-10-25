@@ -25,7 +25,12 @@
  *      world root phase). Heap fields are left stale on purpose.
  *      The old space serves as the forwarding table until the NEXT
  *      pause's heal sweep — ZGC keeps relocation pages alive the
- *      same way, until every pointer into them has healed.
+ *      same way, until every pointer into them has healed. Note the
+ *      validity window this implies: a C local is healable only
+ *      until the next pause — after that, the space it points into
+ *      has been reused, and even the husk check reads whatever lives
+ *      there now. Re-fetch pointers after every pause, exactly as
+ *      gc3's header prescribed.
  *
  * diff gc3_copying.c gc8_zgc.c is the whole lazy-healing delta.
  */

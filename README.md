@@ -46,6 +46,6 @@ wholesale, so diffing them against gc2 would be noise:
     diff gc3_copying.c   gc8_zgc.c       # colored pointers + load barrier
 
 The killer tests (`test7` in gc2, `test5` in gc4, `test8` and
-`test9` in gc6, `test8` in gc7) are the ones whose failure the
-barriers exist to prevent — each barrier half has its own killer
-test and its own expected-fail build that removes it.
+`test9` in gc6, `test8` in gc7, `test5` in gc8) are the ones whose
+failure the barriers exist to prevent — each barrier half has its
+own killer test and its own expected-fail build that removes it.
