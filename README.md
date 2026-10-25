@@ -1,7 +1,7 @@
 # mark-sweep — a GC teaching playground
 
-Sample code for [Baby's First Garbage Collector][article], grown into an
-eight-stage tour. For a guided walk through the algorithms themselves —
+Sample code for [Baby's First Garbage Collector][article], grown into a
+nine-stage tour. For a guided walk through the algorithms themselves —
 what problem each stage inherits, how the invariant lands in code, and
 which killer test disproves which shortcut — read
 [docs/algorithms.md](docs/algorithms.md) of how real collectors work. Each `gcN.c` is one
@@ -20,6 +20,7 @@ against its predecessor — the diff *is* the lesson.
 | `gc4_survivor.c` | age thresholds, eden/survivor space swap, promote on AGE_MAX — gc4's promotion bug fixed | HotSpot young gen (survivor spaces + tenuring) |
 | `gc5_compact.c` | Lisp2 mark-compact: three passes, sliding compaction, dedicated forward word, 100% heap usable | JVM full-GC compaction, .NET's compacting GC |
 | `gc6_hybrid.c` | Go-style hybrid write barrier (insertion + deletion halves), unbarriered root writes, simulated concurrent marking | Go 1.8+ runtime write barrier |
+| `gc7_regions.c` | regionized heap, slot-level per-region remembered sets, per-region evacuation, garbage-first mixed pauses under a CSET budget | JVM G1 |
 
 Build and test everything (five expected-fail binaries prove the
 barriers actually matter — compile them out and the killer tests
@@ -40,6 +41,7 @@ wholesale, so diffing them against gc2 would be noise:
     diff gc4_generational.c gc4_survivor.c  # aging: survivor spaces + AGE_MAX
     diff gc3_copying.c   gc5_compact.c      # mark-compact (single space, in place)
     diff gc2_incremental.c gc6_hybrid.c     # hybrid barrier + pushRoot
+    diff gc3_copying.c   gc7_regions.c     # regions + rssets + mixed selection
 
 The killer tests (`test7` in gc2, `test5` in gc4, `test8` and
 `test9` in gc6) are the ones whose failure the barriers exist to
