@@ -48,9 +48,21 @@ gc4_bo: gc4_generational.c
 gc2_bo: gc2_incremental.c
 	$(CC) $(CFLAGS) -DBARRIER_OFF gc2_incremental.c -o $@
 
+# Institutionalize the sanitizer pass the reviews ran manually:
+# build every stage with ASan+UBSan and run it.
+asan:
+	@ok=0; fail=0; \
+	for s in $(SRCS); do \
+	  b=$$(basename $$s .c); \
+	  if $(CC) -ggdb -std=gnu99 -Wall -fsanitize=address,undefined $$s -o /tmp/$$b.asan && /tmp/$$b.asan > /dev/null 2>&1; then echo "ASAN PASS $$b"; ok=$$((ok+1)); \
+	  else echo "ASAN FAIL $$b"; fail=$$((fail+1)); fi; \
+	done; \
+	echo "$$ok passed, $$fail failed"; \
+	test $$fail -eq 0
+
 run: markandsweep
 	valgrind --leak-check=yes ./markandsweep
 
-.PHONY: all test run clean
+.PHONY: all test run asan clean
 clean:
 	rm -f $(BINS) markandsweep gc2_bo gc3_overflow gc4_bo gc6_dijkstra gc6_yuasa gc7_bo gc7_overflow gc8_bo *~

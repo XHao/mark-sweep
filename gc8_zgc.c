@@ -139,8 +139,11 @@ Object* copyObject(VM* vm, Object* object) {
 
 /* Objects are 8-byte aligned in the heap arrays, so bit 0 of a
    reference is free to carry the view color. */
+/* Set the bit rather than OR it: a value that already carries a color
+   tag is re-based first — double-tagging must not silently fake the
+   current view. */
 Object* tagColor(int color, Object* object) {
-  return (Object*)((size_t)object | (size_t)color);
+  return (Object*)(((size_t)object & ~(size_t)1) | (size_t)color);
 }
 
 Object* untag(Object* pointer) {

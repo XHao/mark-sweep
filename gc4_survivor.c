@@ -244,7 +244,10 @@ void copyYoung(VM* vm, int forceOld) {
   int kept = 0;
   for (int i = 0; i < vm->remsetCount; i++) {
     Object* old = vm->remset[i];
-    if (isYoung(vm, old->head) || isYoung(vm, old->tail)) {
+    /* Pair guard mirrors gc4's scan loop: only pairs can be recorded,
+       but misuse must not alias an int's union storage. */
+    if (old->type == OBJ_PAIR &&
+        (isYoung(vm, old->head) || isYoung(vm, old->tail))) {
       vm->remset[kept++] = old;
     } else {
       old->remembered = 0;

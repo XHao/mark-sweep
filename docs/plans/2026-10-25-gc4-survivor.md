@@ -576,3 +576,6 @@ EOF
 - 4g 处注意：gc4 的 `majorGC` 原本不调 promoteAll——是 minorGC 触发的路径保证了"先晋升"；gc4_survivor 的 majorGC 改为**开头显式** `copyYoung(vm, 1)`，两者语义等价但显式更稳（t6 的 major 断言依赖它）
 - 不要动 gc0–gc6、main.c、master 分支
 - 实际输出与 Expected 不符时停下按 systematic-debugging 排查
+- （修订 2026-10-26：执行期 ruling 改变了 4f 示例代码的 remset 语义——
+  种子循环不再清 `remembered`，改为收集末尾按边存续压缩；以
+  gc4_survivor.c 的实现与 spec §3 修订为准，勿照抄 4f 原文）

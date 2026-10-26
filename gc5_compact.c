@@ -355,8 +355,7 @@ void test7() {
   VM* vm = newVM();
 
   /* Eight chains, depth 3 (5 objects each), one root each. */
-#define CHAINS 8
-#define CHAIN_DEPTH 3
+  enum { CHAINS = 8, CHAIN_DEPTH = 3 };
   const int chains = CHAINS;        /* loop bounds only */
   const int depth = CHAIN_DEPTH;
   for (int j = 0; j < chains; j++) {

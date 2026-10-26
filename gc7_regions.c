@@ -28,7 +28,11 @@
  *
  * What real G1 has that we skip (see gc2/gc6/gc4s for those lessons):
  * concurrent marking, aged promotion, humongous objects, and a
- * soft-real-time scheduler. Our ladder: keep one free region in hand
+ * soft-real-time scheduler. Note too that real G1's young collections
+ * don't consult rssets at all — they evacuate the whole young
+ * generation as one closure; per-region evacuation with rset seeding
+ * is this toy's uniform mechanism, and precisely where the
+ * floating-garbage cascade came from. Our ladder: keep one free region in hand
  * at all times; collect young when free < 2; when that is not enough,
  * census + mixed until it is.
  *
@@ -238,8 +242,9 @@ void census(VM* vm) {
 }
 
 /* Copy target for evacuation: an old region with room, cascading to a
-   fresh one. A region's live set is < REGION_SIZE whenever it is worth
-   evacuating, so one target region always fits one source region. */
+   fresh one. The real guarantee is the caller's up-front target budget
+   (youngGC/mixedGC); this cascade is only the slot-by-slot supply
+   within it. */
 Object* copyIntoOld(VM* vm, Object* object) {
   if (vm->oldTarget < 0 ||
       vm->regions[vm->oldTarget].used == REGION_SIZE) {
@@ -791,7 +796,9 @@ void perfTest() {
   printf("%d young GCs, %d mixed GCs, %d regions evacuated, %d objects moved.\n",
          vm->youngGcCount, vm->mixedGcCount,
          vm->regionsEvacuated, vm->objectsMoved);
-  check(vm->youngGcCount >= 1, "The workload should trigger collections.");
+  /* Deterministic: the ladder fires exactly at the two 7680-object
+     region boundaries, with the churn stack empty both times. */
+  check(vm->youngGcCount == 2, "The ladder fires exactly twice.");
   /* Churn's live set is tiny, so each young frees ~14 regions and free
      never runs low enough to need a mixed pause. */
   check(vm->mixedGcCount == 0, "Young alone should sustain churn.");
