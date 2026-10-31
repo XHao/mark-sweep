@@ -30,6 +30,11 @@ catch the loss):
 
     make test
 
+For the tricolor and write-barrier variants there is also an
+[interactive animation](docs/tricolor-animation.html) — the gc2/gc6
+killer tests replayed under all four barrier settings, with each
+outcome citing its C binary.
+
 Suggested reading order: each file's header comment, then its diff
 against the stage it was built from, then the tests at the bottom.
 gc3 and gc4 are built from **gc0**, not their numeric predecessor —

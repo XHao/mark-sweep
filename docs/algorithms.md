@@ -67,6 +67,9 @@ gc3 Cheney复制 ──50%空间浪费──▶ gc5 Lisp2压缩        gc2 单�
 
 **反证**：`gc2_bo`（`-DBARRIER_OFF`）把字段写屏障退化为裸写，死于 test7（gc2_incremental.c:415）——"覆盖唯一引用字段后重装指针，快照对象被误回收"，断言只读计数不 deref，无 UB。
 
+**动画**：`docs/tricolor-animation.html` 重放本节与 gc6 的三个杀手场景，
+四档屏障切换对照，结局横幅附 C 二进制证据。
+
 **残留问题**：sweep 仍是原子的——这正是 gc3/gc4 出场的原因；同时单屏障在"未屏障栈写"语境下有完整故事（→ gc6）。
 
 ---
@@ -203,6 +206,9 @@ Go 以**写方 goroutine 的栈色**为条件；本玩具没有 per-mutator 栈�
 | `gc6_yuasa` | 仅删除 | t9（gc6_hybrid.c:496）：idle 期弹出的无路径白对象 `pushRoot` 后存入**黑** pair → 只有插入半边能救 | 3 remaining |
 
 **精确的等价范围**：在 gc2/gc6 测试集内 hybrid 与纯 Yuasa 行为等价（gcStart 预灰根 = 起点栈快照，模型从不需要重扫）；但等价**不是**全模型的——t9 的序列就是反例（spec §1 的修订记录了这个边界）。
+
+**动画**：`docs/tricolor-animation.html` 的屏障矩阵表即可交互重放——
+切换四档屏障看同一场景的四种结局。
 
 ---
 
