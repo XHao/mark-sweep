@@ -76,7 +76,7 @@ collect:  逐候选 r：队列弹出 x；x 为 WHITE → 置 BLACK（防重访�
 | t7 对偶回收 | **gc9-t5 同一构造**：丢双根 → `collectCycles` → `liveObjects == 0` 自动清——两章互为注脚 |
 | t8 外部引用救岛 | a↔b 环 + 额外根持 a → `collectCycles` → 岛**存活**（scan-black 恢复计数）；再丢根再收 → 清零。`gc10_bo`（`-DNO_SCAN_BLACK`）死于本测试前半（误杀外部存活岛） |
 | t9 嵌套与悬链 | x↔y 环挂无环 z：无外部引用 → 三者全收；z 被外部根持有 → 仅环被收、z 独存 |
-| perfTest | gc9 负载原样（断言不变）+ 环churn 段：100×（建 a↔b 岛丢根）+ 一次 `collectCycles` → `cycleFreed == 600`、终态 `liveObjects == 0` |
+| perfTest | gc9 负载原样（断言不变）+ 环churn 段：100×（建 a↔b 岛丢根）+ 一次 `collectCycles` → `cycleFreed == 400`、终态 `liveObjects == 0`（修订 2026-10-31：每岛 4 对象——两个 tail int 被存储三步曲释放；原文 600 系预估笔误） |
 
 **gc10_bo 失败落点**：scan 阶段被编译为无条件走白支 → t8 的
 "Should have preserved objects" 优雅失败（误杀即证据）。
