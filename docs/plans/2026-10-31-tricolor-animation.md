@@ -301,7 +301,9 @@ function runScenario(scnId, barrierId) {
     allocInt('n1', 1); allocInt('v', 42);
     allocPair('g', 'n1', 'v');
     allocInt('w', 99);
-    pop();                      /* w: popped at IDLE — pathless, C-held */
+    pushRoot('w');   /* 修订 2026-10-31，执行期 ruling：模型 allocInt 不入栈，
+                        缺此 push 则 pop() 弹掉 g、根清空、sweep 清空全堆 */
+    pop();                    /* w: popped at IDLE — pathless, C-held */
     gcStart();
     stepOnce();                 /* g -> BLACK, explicitly */
     pushRoot('w');

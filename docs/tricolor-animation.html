@@ -155,12 +155,21 @@ function runScenario(scnId, barrierId) {
     if (o.kind === 'PAIR') { shade(o.head, notes); shade(o.tail, notes); }
   }
 
-  /* Mutator ops (built at IDLE in all three scenarios). */
+  /* Mutator ops (built at IDLE in all three scenarios). A marking-time
+     allocation pays one GC step, exactly as C's newObject does. */
+  function allocDrivesStep() {
+    if (S.gcState === 'MARKING') {
+      const n2 = [];
+      gcStep(n2);
+      if (n2.length) snap('collector: gcStep —— ' + n2.join('；'));
+    }
+  }
   function allocInt(id, value) {
     S.objects[id] = { id: id, kind: 'INT', value: value,
                       color: S.gcState === 'MARKING' ? 'BLACK' : 'WHITE' };
     snap('mutator: alloc int ' + id + '（值 ' + value + '）' +
          (S.gcState === 'MARKING' ? ' —— 标记期出生即黑（gc2 规则 3）' : ''));
+    allocDrivesStep();
   }
   function pushRoot(id) {
     S.vmStack.push(id);
@@ -170,6 +179,7 @@ function runScenario(scnId, barrierId) {
     S.objects[id] = { id: id, kind: 'PAIR', head: headId, tail: tailId,
                       color: S.gcState === 'MARKING' ? 'BLACK' : 'WHITE' };
     pushRoot(id);
+    allocDrivesStep();
   }
   function pop() {
     const id = S.vmStack.pop();
@@ -417,6 +427,9 @@ document.getElementById('btn-reset').onclick = () => { cur.idx = 0; render(); };
 document.getElementById('btn-play').onclick = play;
 
 if (location.search.indexOf('selftest') >= 0) {
+  /* Diagnostic mode: no interactive run is built (cur.run stays null),
+     so the controls stay hidden rather than armed and crashing. */
+  document.querySelector('.controls').style.display = 'none';
   runSelfTest(s => { document.getElementById('selftest').textContent = s; });
   document.getElementById('selftest').style.display = 'block';
 } else {
