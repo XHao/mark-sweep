@@ -16,8 +16,9 @@
    的直接对照；malloc/free 逐对象（gc0 堆形态），成本模型诚实
 2. **栈即强引用**：push = retain、pop = release；字段写走三步曲
    （见 §3）——**顺序本身就是课**
-3. **环杀手（反向形态）**：a↔b 互持计数、丢根后双双泄漏——
-   `check(liveObjects == 2, "环在朴素 RC 下泄漏")`。测试以**钉住缺陷**为通过，
+3. **环杀手（反向形态）**：a↔b 互持计数、丢根后**整个可达闭包**泄漏——
+   `check(liveObjects == 4, ...)`（两 pair + 两个 head int；被替换的 tail int
+   已被存储三步曲正确释放）。测试以**钉住缺陷**为通过，
    注释指向 gc10（混合修复）；随后用公开惯用语**手动断环**清零——ARC 程序员
    的日常操作。与 gc0 test4"mark-sweep 天然处理环"构成范式对偶的首尾呼应
 4. **成本统计**：`retain+release` 操作计数——perfTest 量化"范式把成本摊进
@@ -80,7 +81,7 @@ release(vm, old);           /* ③ 后释放旧值：①②使旧值之死不伤
 | t2 | 级联死亡：7 对象嵌套树、丢根 → 瞬间清零（RC 卖点 vs gc0 需要收集） |
 | t3 | 共享引用计数：同对象双根 → pop 一次仍活、再 pop 才死 |
 | t4 | 自赋值惯用语：`objectSetTail(p, p->tail)` → 不中途释放、结构完好 |
-| t5 | **环杀手三段**：丢双根 → `liveObjects == 2`（泄漏钉住，注释指向 gc10）→ `objectSetTail(a, NULL)` 手动断环 → 级联清零 `== 0` |
+| t5 | **环杀手三段**：丢双根 → `liveObjects == 4`（整个闭包泄漏钉住，注释指向 gc10；执行期修订——计划原文 ==2 少计了闭包）→ `objectSetTail(a, NULL)` 手动断环 → 级联清零 `== 0` |
 | t6 | 循环覆写：`objectSetTail` 千次替换 → `liveObjects` 恒定（计数无泄漏无重释放，ASan 护航） |
 | perfTest | 沿用负载 + 统计行 `N objects live, M refcount ops` + 终态 `liveObjects == 0` |
 

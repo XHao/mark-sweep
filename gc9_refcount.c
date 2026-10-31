@@ -24,9 +24,10 @@
  *     would otherwise release an already-freed object (test5).
  *
  * And the famous flaw, pinned as an assertion: a rootless a<->b cycle
- * keeps both counts at one and LEAKS (test5 checks liveObjects == 2,
- * then breaks the cycle by hand — the ARC programmer's daily fix —
- * and watches the cascade clear it). The automatic fix, a periodic
+ * keeps both counts at one and LEAKS ITS ENTIRE CLOSURE (test5 checks
+ * liveObjects == 4 — both pairs plus both head ints; everything the
+ * cycle reaches stays pinned), then breaks the cycle by hand — the
+ * ARC programmer's daily fix — and watches the cascade clear it. The automatic fix, a periodic
  * cycle-tracing pass, is gc10's whole chapter. Until then: this file
  * has no gc() at all — that absence is the paradigm.
  *
@@ -161,9 +162,11 @@ void objectSetTail(VM* vm, Object* pair, Object* value) {
 }
 
 Object* pushPair(VM* vm) {
-  /* Transfer: retain BEFORE pop — the pop releases, and without the
-     retain the last reference could die mid-transfer. Net count
-     change per value: zero. */
+  /* The transfer reads the top two slots directly (retain before pop
+     — the pop releases, and without the retain the last reference
+     could die mid-transfer; net count change per value: zero), so the
+     underflow guard gc0 got from pop() lives here now. */
+  check(vm->stackSize >= 2, "Stack underflow!");
   Object* tail = vm->stack[vm->stackSize - 1];
   retain(vm, tail);
   Object* head = vm->stack[vm->stackSize - 2];
@@ -186,10 +189,12 @@ void objectPrint(Object* object) {
       break;
 
     case OBJ_PAIR:
+      /* NULL fields are legitimate here (a broken cycle leaves one),
+         and printing one must not dereference it. */
       printf("(");
-      objectPrint(object->head);
+      if (object->head) objectPrint(object->head); else printf("null");
       printf(", ");
-      objectPrint(object->tail);
+      if (object->tail) objectPrint(object->tail); else printf("null");
       printf(")");
       break;
   }

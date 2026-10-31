@@ -455,3 +455,7 @@ EOF
   UAF/泄漏形式被 `make asan` 抓住——若 test 通过而 asan 失败，顺序错了
 - 不要动 gc0–gc8、main.c、master 分支
 - 实际输出与 Expected 不符时停下按 systematic-debugging 排查，勿硬闯
+- （修订 2026-10-26，执行期 ruling ×2 supersede 上文示例：① t5 断言 ==2 应为
+  **==4**——环钉住整个可达闭包；② t6 的"手工 retain+pop 再存"会与三步曲的
+  retain 重复计数（每轮 +1 泄漏），交付版为**先存后弹**。以 gc9_refcount.c
+  与 spec §1/§4 修订为准，勿照抄上文）
