@@ -1,7 +1,7 @@
 # mark-sweep — a GC teaching playground
 
-Sample code for [Baby's First Garbage Collector][article], grown into a
-ten-stage tour. For a guided walk through the algorithms themselves —
+Sample code for [Baby's First Garbage Collector][article], grown into an
+eleven-stage tour. For a guided walk through the algorithms themselves —
 what problem each stage inherits, how the invariant lands in code, and
 which killer test disproves which shortcut — read
 [docs/algorithms.md](docs/algorithms.md). Each `gcN.c` is one
@@ -22,6 +22,7 @@ against its predecessor — the diff *is* the lesson.
 | `gc6_hybrid.c` | Go-style hybrid write barrier (insertion + deletion halves), unbarriered root writes, simulated concurrent marking | Go 1.8+ runtime write barrier |
 | `gc7_regions.c` | regionized heap, slot-level per-region remembered sets, per-region evacuation, garbage-first mixed pauses under a CSET budget | JVM G1 |
 | `gc8_zgc.c` | colored pointers (view bit), load barrier with in-place healing, lazy relocation, old space as forwarding table | ZGC (load barriers, concurrent relocation) |
+| `gc9_refcount.c` | reference counting: strong-reference stack, cascading immediate death, the three-step store idiom, cycles leak (pinned) | Swift/ObjC ARC, Python's everyday layer |
 
 Build and test everything (eight expected-fail binaries prove the
 barriers actually matter — compile them out and the killer tests
@@ -44,6 +45,7 @@ wholesale, so diffing them against gc2 would be noise:
     diff gc2_incremental.c gc6_hybrid.c     # hybrid barrier + pushRoot
     diff gc3_copying.c   gc7_regions.c     # regions + rssets + mixed selection
     diff gc3_copying.c   gc8_zgc.c       # colored pointers + load barrier
+    diff gc0_baseline.c  gc9_refcount.c   # the paradigm swap: counting vs tracing
 
 The killer tests (`test7` in gc2, `test5` in gc4, `test8` and
 `test9` in gc6, `test8` in gc7, `test5` in gc8) are the ones whose
