@@ -190,7 +190,7 @@ Object* workPop(Worklist* work) {
 
 /* Scan-black: externally alive — restore the trial-deleted edges
    (+1) and propagate blackness (liveness spreads). */
-void scanBlack(VM* vm, Object* object) {
+void scanBlack(Object* object) {
   Worklist work = {NULL, 0, 0};
   workPush(&work, object);
   while (work.count > 0) {
@@ -255,7 +255,7 @@ void collectCycles(VM* vm) {
 #else
     if (x->refCount > 0) {
 #endif
-      scanBlack(vm, x);
+      scanBlack(x);
     } else {
       x->gcColor = GC_WHITE;
       if (x->type == OBJ_PAIR) {
