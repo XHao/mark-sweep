@@ -22,7 +22,10 @@ gc9 把范式缺陷钉成了断言：无根的环泄漏**整个可达闭包**。
    环内互持归零
 3. **扫描黑**（scan）：试探计数 > 0 者**外部存活**——置黑、沿边恢复计数
    （+1）、黑性传播；试探零者置白
-4. **收集白**：仍白者即自持环，级联释放（直接 free + 递归收集，不走 release）
+4. **收集白**：仍白者即自持环——**先遍历收集到待释放队列、遍历完统一 free**
+   （Bacon 原版的 collect-then-free 形态；遍历中立即 free 会让后续对象读取已
+   释放兄弟的字段——本分支 ASan 实测抓到两层该形态的 use-after-free，修订
+   于此，2026-10-31）
 
 **正确性不变式**：任何未被试探删除的入边使计数 > 0 → scan-black 救活；
 被试探删除的边的源头若外部存活，scan-black 传播恢复之。故误杀与漏收皆不可能。
@@ -62,7 +65,10 @@ scan:     逐候选 s：队列弹出 x；x 为 GRAY：refCount > 0 → scan_blac
            否则置 WHITE、子入队继续 scan
 scan_black: x 置 BLACK，逐子 child.refCount++ 且递归黑化（队列版）
 collect:  逐候选 r：队列弹出 x；x 为 WHITE → 置 BLACK（防重访）、子入队、
-           free(x)、cycleFreed++（不走 release——计数已无意义）
+           压入待释放队列 toFree（不走 release——计数已无意义）
+          遍历毕：统一 drain toFree（free + cycleFreed++）
+          —— 立即 free 的形态已证不健全（见 §1 修订）；延迟后所有字段读取
+             都发生在活内存上
 若 cycleFreed > 0 → cyclesCollected++
 ```
 

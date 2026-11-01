@@ -55,6 +55,7 @@ wholesale, so diffing them against gc2 would be noise:
     diff gc9_refcount.c gc10_cycles.c    # the hybrid: cycle collection on RC
 
 The killer tests (`test7` in gc2, `test5` in gc4, `test8` and
-`test9` in gc6, `test8` in gc7, `test5` in gc8) are the ones whose
+`test9` in gc6, `test8` in gc7, `test5` in gc8, `test8` in gc10)
+are the ones whose
 failure the barriers exist to prevent — each barrier half has its
 own killer test and its own expected-fail build that removes it.

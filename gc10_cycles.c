@@ -11,7 +11,12 @@
  *
  *   1. Candidate buffering. Only objects whose count DROPPED without
  *      reaching zero can head a cycle (Bacon's insight), so release()
- *      buffers them; steady-state objects never enter the pass.
+ *      buffers them; steady-state objects never enter the pass. The
+ *      honest cost: false positives — every pushPair transfer drops
+ *      the children's counts to "held by the new pair", so churn
+ *      grows the buffer, and unbuffer's linear scan makes the worst
+ *      case O(n^2). Fine at teaching scale; it's the price of
+ *      Bacon's roots filter.
  *   2. Trial deletion (mark-gray). From each candidate, walk the
  *      children and decrement every internal edge once (the gray
  *      guard makes it once-per-object). External references keep
@@ -567,7 +572,9 @@ void test9() {
   Object* z = pushPair(vm);
 
   /* x = (y, z): cycle x<->y via x.head/y.tail, pendant z via x.tail.
-     The 11/12 ints die in the stores, leaving a 7-object island. */
+     The 11/12 ints die in the stores — 6 objects live here (x, y, z,
+     and the three surviving ints); the collector will free exactly
+     the 3 the cycle pins. */
   objectSetHead(vm, x, y);
   objectSetTail(vm, x, z);
   objectSetTail(vm, y, x);
